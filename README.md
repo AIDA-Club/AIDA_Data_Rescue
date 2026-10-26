@@ -67,8 +67,8 @@ Run `npm run check:production` before linking or deploying the project. The chec
 1. Create a dedicated Supabase project and run `supabase/schema.sql` in its SQL editor.
 2. Copy `.env.example` to the deployment environment. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Keep the service-role key server-side.
 3. Set `AIDA_TEAM_EMAIL_DOMAIN` to an organizer-controlled domain, then run `node scripts/provision.mjs`. Give each generated credential to exactly one team through an approved channel. Delete the local credential file after secure distribution.
-4. Configure a funded Vercel project with `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, and `VERCEL_PROJECT_ID`.
-5. Run `node scripts/prepare-sandbox.mjs`, then save the returned snapshot ID as `AIDA_SANDBOX_SNAPSHOT`.
+4. Link the Vercel project and run `vercel env pull` so local snapshot preparation receives a short-lived `VERCEL_OIDC_TOKEN`. External CI may instead use `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, and `VERCEL_PROJECT_ID`.
+5. Run `node scripts/prepare-sandbox.mjs`, then save the returned snapshot ID as `AIDA_SANDBOX_SNAPSHOT`. Production Functions use Vercel's automatically supplied OIDC identity.
 6. Set `OPENAI_API_KEY` and `OPENAI_MODEL` in server-side environment variables. Do not expose the key through a `NEXT_PUBLIC_` variable.
 7. Remove `AIDA_LOCAL_DEMO`, deploy the Next.js project, and verify all acceptance checks against the production URL.
 8. Run a supervised 15-team rehearsal. The Vercel Hobby allowance is below the required concurrency, so use a paid allocation or approved university infrastructure.

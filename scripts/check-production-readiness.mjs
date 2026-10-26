@@ -26,7 +26,9 @@ const add = (name, ok, detail) => checks.push({name, ok, detail});
 for (const key of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY']) add(key, has(key), has(key) ? 'configured' : 'missing');
 add('AIDA_TEAM_EMAIL_DOMAIN', has('AIDA_TEAM_EMAIL_DOMAIN'), has('AIDA_TEAM_EMAIL_DOMAIN') ? 'configured' : 'missing');
 add('OPENAI_API_KEY', has('OPENAI_API_KEY'), has('OPENAI_API_KEY') ? 'configured; live API credits must also be available' : 'missing');
-for (const key of ['VERCEL_TOKEN', 'VERCEL_TEAM_ID', 'VERCEL_PROJECT_ID', 'AIDA_SANDBOX_SNAPSHOT']) add(key, has(key), has(key) ? 'configured' : 'missing');
+const sandboxAuth=has('VERCEL_OIDC_TOKEN')||(has('VERCEL_TOKEN')&&has('VERCEL_TEAM_ID')&&has('VERCEL_PROJECT_ID'));
+add('VERCEL_SANDBOX_AUTH',sandboxAuth,sandboxAuth?'OIDC or explicit credentials configured':'missing OIDC or explicit credentials');
+add('AIDA_SANDBOX_SNAPSHOT',has('AIDA_SANDBOX_SNAPSHOT'),has('AIDA_SANDBOX_SNAPSHOT')?'configured':'missing');
 
 const publicUrl = value('AIDA_PUBLIC_URL');
 let publicUrlValid = false;

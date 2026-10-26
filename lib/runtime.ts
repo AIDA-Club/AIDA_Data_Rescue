@@ -6,9 +6,10 @@ import path from 'node:path';
 import {readState,mutate,cloud,supabase} from './store';
 import {clock,teamClock} from './rules';
 
-const credentials=()=>({token:process.env.VERCEL_TOKEN!,teamId:process.env.VERCEL_TEAM_ID!,projectId:process.env.VERCEL_PROJECT_ID!});
+const hasExplicitCredentials=()=>!!(process.env.VERCEL_TOKEN&&process.env.VERCEL_TEAM_ID&&process.env.VERCEL_PROJECT_ID);
+const credentials=()=>hasExplicitCredentials()?{token:process.env.VERCEL_TOKEN!,teamId:process.env.VERCEL_TEAM_ID!,projectId:process.env.VERCEL_PROJECT_ID!}:{};
 const localReview=()=>process.env.AIDA_LOCAL_DEMO==='true'&&!process.env.VERCEL;
-const remoteReady=()=>!!(process.env.AIDA_SANDBOX_SNAPSHOT&&process.env.VERCEL_TOKEN&&process.env.VERCEL_TEAM_ID&&process.env.VERCEL_PROJECT_ID);
+const remoteReady=()=>!!(process.env.AIDA_SANDBOX_SNAPSHOT&&(process.env.VERCEL||process.env.VERCEL_OIDC_TOKEN||hasExplicitCredentials()));
 export const runtimeReady=()=>localReview()||remoteReady();
 const localRuns=new Map<string,{child:ChildProcess;dir:string;timer:ReturnType<typeof setTimeout>}>();
 
@@ -46,7 +47,7 @@ async function runLocal(teamId:string,code:string){
 export async function connect(id:string){return Sandbox.get({name:id,...credentials()});}
 export async function startRuntime(teamId:string){
   if(localReview()){await prepareLocal(teamId);return;}
-  if(!remoteReady())throw new Error('Python runtime is not configured. Add the organizer Vercel credentials and prebuilt snapshot. Your code is saved.');
+  if(!remoteReady())throw new Error('Python runtime is not configured. Add the prebuilt Vercel Sandbox snapshot. Your code is saved.');
   const s=await readState(),t=s.teams[teamId];if(t.sandboxId){try{return await connect(t.sandboxId);}catch{/* Restore from durable workspace below. */}}
   const box=await Sandbox.create({...credentials(),source:{type:'snapshot',snapshotId:process.env.AIDA_SANDBOX_SNAPSHOT!},resources:{vcpus:2},timeout:65*60*1000,networkPolicy:'deny-all'});await box.runCommand({cmd:'mkdir',args:['-p','/vercel/sandbox/data','/vercel/sandbox/output']});const names=['equipment_dirty.csv','split_manifest.csv','data_dictionary.json'];if(teamClock(s.event,t.submissions).stage>=2)names.push('maintenance_outcomes.csv');await box.writeFiles(await Promise.all(names.map(async name=>({path:`/vercel/sandbox/data/${name}`,content:await readLocalFile(path.join(process.cwd(),'data/participant',name))}))));await box.writeFiles([{path:'/vercel/sandbox/main.py',content:Buffer.from(t.workspace.code)}]);await mutate(s=>{s.teams[teamId].sandboxId=box.name;});return box;
 }

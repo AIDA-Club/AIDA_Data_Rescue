@@ -8,7 +8,7 @@ const {readState}=await import('../lib/store');
 const state=await readState();
 if(!state.event.startedAt||Date.now()-state.event.startedAt-state.event.pausedMs<3600000||state.event.pausedAt)throw new Error('Finish the competition before judging.');
 if(!process.env.AIDA_SANDBOX_SNAPSHOT)throw new Error('Configure the prepared Vercel snapshot.');
-const credentials={token:process.env.VERCEL_TOKEN!,teamId:process.env.VERCEL_TEAM_ID!,projectId:process.env.VERCEL_PROJECT_ID!};
+const credentials=process.env.VERCEL_TOKEN&&process.env.VERCEL_TEAM_ID&&process.env.VERCEL_PROJECT_ID?{token:process.env.VERCEL_TOKEN,teamId:process.env.VERCEL_TEAM_ID,projectId:process.env.VERCEL_PROJECT_ID}:{};
 async function box(){return Sandbox.create({...credentials,source:{type:'snapshot',snapshotId:process.env.AIDA_SANDBOX_SNAPSHOT!},resources:{vcpus:2},timeout:180000,networkPolicy:'deny-all'});}
 const teams=Object.values(state.teams).filter(t=>t.role==='team');
 for(let start=0;start<teams.length;start+=3)await Promise.all(teams.slice(start,start+3).map(async team=>{

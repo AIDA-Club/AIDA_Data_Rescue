@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement to the event platform or competition workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired participant or organizer outcome
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Event impact
+      options:
+        - Required before registration
+        - Required before rehearsal
+        - Improvement for a later event
+    validations:
+      required: true

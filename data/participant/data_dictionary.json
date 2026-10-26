@@ -1,0 +1,62 @@
+{
+  "temperature_c": {
+    "unit": "C",
+    "min": -10,
+    "max": 150
+  },
+  "ambient_temperature_c": {
+    "unit": "C",
+    "min": -10,
+    "max": 60
+  },
+  "vibration_mm_s": {
+    "unit": "mm/s",
+    "min": 0,
+    "max": 25
+  },
+  "current_a": {
+    "unit": "A",
+    "min": 0,
+    "max": 100
+  },
+  "voltage_v": {
+    "unit": "V",
+    "min": 150,
+    "max": 280
+  },
+  "humidity_pct": {
+    "unit": "%",
+    "min": 0,
+    "max": 100
+  },
+  "pressure_bar": {
+    "unit": "bar",
+    "min": 0,
+    "max": 20
+  },
+  "rotation_rpm": {
+    "unit": "rpm",
+    "min": 0,
+    "max": 6000
+  },
+  "daily_runtime_hours": {
+    "unit": "h",
+    "min": 0,
+    "max": 24
+  },
+  "equipment_age_months": {
+    "unit": "months",
+    "min": 0,
+    "max": 240
+  },
+  "days_since_service": {
+    "unit": "days",
+    "min": 0,
+    "max": 1500
+  },
+  "load_pct": {
+    "unit": "%",
+    "min": 0,
+    "max": 100
+  }
+}

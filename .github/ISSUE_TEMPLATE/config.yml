@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Event administration
+    url: https://github.com/darksolarx/AIDA_Data_Rescue#final-administrative-work
+    about: Review the approval and event-readiness checklist before opening an issue.

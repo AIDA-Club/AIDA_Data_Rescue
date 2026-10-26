@@ -1,0 +1,10 @@
+.env*
+.local/
+.venv/
+.python/
+data/private/
+output/
+tests/
+python/reference_solution.py
+python/generate_dataset.py
+scripts/

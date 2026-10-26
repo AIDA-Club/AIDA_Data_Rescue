@@ -1,0 +1,42 @@
+.vortex {
+  background: #03091de8;
+  animation-duration: 1.8s;
+  overflow: hidden;
+}
+
+.vortex > div {
+  grid-area: 1 / 1;
+  animation-duration: 1.65s;
+}
+
+.vortex-copy {
+  grid-area: 1 / 1;
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #dff6ff;
+  text-shadow: 0 0 24px #279fff;
+  animation: vortex-copy 1.8s ease-in-out forwards;
+}
+
+.vortex-copy small { letter-spacing: 3px; color: #79dfff; }
+.vortex-copy strong { font-size: clamp(22px, 4vw, 48px); }
+.vortex-copy p { max-width: 460px; margin: 0; color: #b8dfff; }
+
+@keyframes vortex-copy {
+  0%, 100% { opacity: 0; transform: scale(.75); }
+  25%, 72% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vortex {
+    display: grid !important;
+    animation: none !important;
+    background: #06112ff2;
+  }
+  .vortex > div { display: none; }
+  .vortex-copy { animation: none !important; opacity: 1; transform: none; }
+}

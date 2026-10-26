@@ -1,0 +1,3 @@
+import {cookies} from 'next/headers';
+import {cloud,digest,readState,supabase} from './store';
+export async function identity(){const cookie=(await cookies()).get('aida-session')?.value;if(!cookie)throw new Error('Please sign in');const state=await readState();if(cloud()){const {data,error}=await supabase().auth.getUser(cookie);if(error||!data.user)throw new Error('Session expired');const team=state.teams[data.user.id];if(!team)throw new Error('Team not registered');return team.id;}const session=state.sessions[digest(cookie)];if(!session||session.expires<Date.now())throw new Error('Session expired');return session.teamId;}

@@ -1,0 +1,7 @@
+{
+  "validation_accuracy": 0.8880000114440918,
+  "best_validation_loss": 0.272741436958313,
+  "private_test_accuracy": 0.8769999742507935,
+  "private_test_loss": 0.28145450353622437,
+  "runtime_seconds": 4.425466299057007
+}

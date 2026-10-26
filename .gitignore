@@ -1,0 +1,17 @@
+.env*
+!.env.example
+node_modules/
+.next/
+.local/
+.python/
+.venv/
+data/private/
+output/qa/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+
+.vercel
+.env*

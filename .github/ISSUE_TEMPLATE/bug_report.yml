@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible problem in the participant or organizer workflow.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Participant workspace
+        - Python runtime
+        - AI tutor or judge
+        - Organizer console
+        - Dataset or scoring
+        - Deployment
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include the team role, stage, action, and observed result. Never include credentials or private labels.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Safe logs or screenshots
+      description: Remove access codes, tokens, private test data, and student information.

@@ -1,0 +1,28 @@
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: ['app/**/*', 'public/**/*']
+backend:
+  - changed-files:
+      - any-glob-to-any-file: ['app/api/**/*', 'lib/auth.ts', 'lib/store.ts', 'lib/runtime.ts']
+ai-judge:
+  - changed-files:
+      - any-glob-to-any-file: ['lib/ai-judge.ts', 'lib/rules.ts', 'app/api/**/*']
+data:
+  - changed-files:
+      - any-glob-to-any-file: ['data/participant/**/*', 'python/**/*', 'starters/**/*']
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['README.md', 'docs/**/*', 'DOMAIN_OPTIONS.md', 'output/proposal/**/*']
+deployment:
+  - changed-files:
+      - any-glob-to-any-file: ['.env.example', '.vercelignore', 'next.config.ts', 'supabase/**/*', 'scripts/provision.mjs', 'scripts/prepare-sandbox.mjs']
+security:
+  - changed-files:
+      - any-glob-to-any-file: ['lib/auth.ts', 'lib/runtime.ts', 'lib/store.ts', 'supabase/**/*', '.gitignore']
+testing:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**/*', 'scripts/check-api.mjs', 'scripts/capture-*.mjs']
+hackathon:
+  - changed-files:
+      - any-glob-to-any-file: ['lib/rules.ts', 'starters/**/*', 'output/proposal/**/*', 'README.md']
+

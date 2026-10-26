@@ -25,4 +25,3 @@ testing:
 hackathon:
   - changed-files:
       - any-glob-to-any-file: ['lib/rules.ts', 'starters/**/*', 'output/proposal/**/*', 'README.md']
-

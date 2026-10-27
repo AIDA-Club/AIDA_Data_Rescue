@@ -6,7 +6,7 @@ import {z} from 'zod';
 import {identity} from '@/lib/auth';
 import {mutate,readState,cloud,checkCode,digest,token} from '@/lib/store';
 import {clock,teamClock,promptValid,promptSpecific,limitHint,localTutorHint,openAIError} from '@/lib/rules';
-import {runtimeReady,startRuntime,runCode,pollRun,stopRun,collectArtifacts,checkpointRuntime,resetLocalRuntime} from '@/lib/runtime';
+import {runtimeReady,startRuntime,runCode,pollRun,stopRun,collectArtifacts,checkpointRuntime,refreshRuntime,resetLocalRuntime} from '@/lib/runtime';
 import {combineJudgeScore,judgeWithAi} from '@/lib/ai-judge';
 export const runtime='nodejs'; export const dynamic='force-dynamic';export const maxDuration=180;
 const revision=z.object({code:z.string().max(100000),notes:z.string().max(6000),stage:z.number().int().min(1).max(3)});
@@ -59,7 +59,47 @@ if(action==='hint'&&write){
  await mutate(s=>{s.teams[id].hints[b.stage]={prompt:b.prompt,status:'done',answer,at:Date.now()};s.audit.push({at:Date.now(),actor:id,action:`Stage ${b.stage} hint answered by ${source}`});});
  return NextResponse.json({status:'done',answer,source});
 }
-if(action.startsWith('admin')){if(team.role!=='admin')throw new Error('Organizer access required');if(action==='admin'&&!write)return NextResponse.json({event:state.event,teams:Object.values(state.teams).filter(t=>t.role==='team').sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).map(t=>({id:t.id,name:t.name,submissions:t.submissions,score:t.score,aiReview:t.aiReview,running:t.running})),audit:state.audit.slice(-100)});if(action==='admin/judge'&&write){const b=z.object({teamId:z.string().min(1)}).parse(body);if(!clock(state.event).finished)throw new Error('AI judging begins after the competition finishes');const target=state.teams[b.teamId];if(!target||target.role!=='team')throw new Error('Team not found');if(!Object.keys(target.submissions).length)throw new Error('This team has no frozen submissions');const review=await judgeWithAi(target);const score=combineJudgeScore(target,review,target.score?.accuracy,target.score?.loss);await mutate(s=>{const current=s.teams[b.teamId];if(!current)throw new Error('Team changed during review');current.aiReview=review;current.score=score;s.audit.push({at:Date.now(),actor:id,action:`AI judged ${b.teamId} with ${review.model}`});});return NextResponse.json({ok:true,review,score});}if(write){const b=z.object({action:z.enum(['start','pause','resume','publish','unpublish','unlock-ai','next-stage','advance-review','reset-review','score']),teamId:z.string().optional(),score:z.object({stage1:z.number().min(0).max(30),stage2:z.number().min(0).max(30),stage3:z.number().min(0).max(40),accuracy:z.number().min(0).max(1),loss:z.number().min(0),reason:z.string().min(10).max(1000)}).optional()}).parse(body);await mutate(s=>{const now=Date.now();if(b.action==='reset-review'){if(cloud())throw new Error('Reset is only available in local review');s.event={startedAt:now,pausedAt:null,pausedMs:0,published:false};for(const t of Object.values(s.teams))if(t.role!=='admin'){t.workspace={code:'',notes:'',at:0};t.submissions={};t.hints={};t.running=false;delete t.runId;delete t.sandboxId;delete t.output;delete t.metrics;delete t.score;delete t.aiReview;}}if(b.action==='start'){if(s.event.startedAt)throw new Error('Event already started');s.event.startedAt=now;}if(b.action==='pause'&&s.event.startedAt&&!s.event.pausedAt)s.event.pausedAt=now;if(b.action==='resume'&&s.event.pausedAt){s.event.pausedMs+=now-s.event.pausedAt;s.event.pausedAt=null;}if(b.action==='unlock-ai'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');const intoStage=c.elapsed%1200;if(intoStage<300)s.event.startedAt-=Math.ceil((300-intoStage)*1000);}if(b.action==='next-stage'||b.action==='advance-review'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');s.event.startedAt-=Math.ceil((1200-(c.elapsed%1200))*1000);}if(b.action==='publish'){if(!clock(s.event).finished)throw new Error('Competition must finish first');s.event.published=true;}if(b.action==='unpublish')s.event.published=false;if(b.action==='score'){if(!clock(s.event).finished||!b.teamId||!b.score||!s.teams[b.teamId])throw new Error('Scores require a finished competition and valid team');s.teams[b.teamId].score=b.score;delete s.teams[b.teamId].aiReview;}s.audit.push({at:now,actor:id,action:b.action});});if(b.action==='reset-review')await resetLocalRuntime();return NextResponse.json({ok:true});}}
+if(action.startsWith('admin')){
+ if(team.role!=='admin')throw new Error('Organizer access required');
+ if(action==='admin'&&!write)return NextResponse.json({event:state.event,teams:Object.values(state.teams).filter(t=>t.role==='team').sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).map(t=>({id:t.id,name:t.name,submissions:t.submissions,score:t.score,aiReview:t.aiReview,running:t.running,runtimeReady:Boolean(t.sandboxId)})),audit:state.audit.slice(-100)});
+ if(action==='admin/runtime/refresh'&&write){
+  const b=z.object({teamId:z.string().min(1)}).parse(body),target=state.teams[b.teamId];
+  if(!target||target.role==='admin')throw new Error('Team not found');
+  await refreshRuntime(b.teamId);
+  await mutate(s=>{s.audit.push({at:Date.now(),actor:id,action:`Refreshed Python compiler for ${b.teamId}`});});
+  return NextResponse.json({ok:true});
+ }
+ if(action==='admin/judge'&&write){
+  const b=z.object({teamId:z.string().min(1)}).parse(body);
+  if(!clock(state.event).finished)throw new Error('AI judging begins after the competition finishes');
+  const target=state.teams[b.teamId];if(!target||target.role!=='team')throw new Error('Team not found');
+  if(!Object.keys(target.submissions).length)throw new Error('This team has no frozen submissions');
+  const review=await judgeWithAi(target),score=combineJudgeScore(target,review,target.score?.accuracy,target.score?.loss);
+  await mutate(s=>{const current=s.teams[b.teamId];if(!current)throw new Error('Team changed during review');current.aiReview=review;current.score=score;s.audit.push({at:Date.now(),actor:id,action:`AI judged ${b.teamId} with ${review.model}`});});
+  return NextResponse.json({ok:true,review,score});
+ }
+ if(write){
+  const b=z.object({action:z.enum(['start','pause','resume','end','publish','unpublish','unlock-ai','next-stage','advance-review','reset-review','score']),teamId:z.string().optional(),score:z.object({stage1:z.number().min(0).max(30),stage2:z.number().min(0).max(30),stage3:z.number().min(0).max(40),accuracy:z.number().min(0).max(1),loss:z.number().min(0),reason:z.string().min(10).max(1000)}).optional()}).parse(body);
+  const runtimeTeams=await mutate(s=>{
+   const now=Date.now();
+   if(b.action==='reset-review'){if(cloud())throw new Error('Reset is only available in local review');s.event={startedAt:now,pausedAt:null,pausedMs:0,published:false};for(const t of Object.values(s.teams))if(t.role!=='admin'){t.workspace={code:'',notes:'',at:0};t.submissions={};t.hints={};t.running=false;delete t.runId;delete t.sandboxId;delete t.output;delete t.metrics;delete t.score;delete t.aiReview;}}
+   if(b.action==='start'){if(s.event.startedAt)throw new Error('Event already started');s.event.startedAt=now;}
+   if(b.action==='pause'&&s.event.startedAt&&!s.event.pausedAt)s.event.pausedAt=now;
+   if(b.action==='resume'&&s.event.pausedAt){s.event.pausedMs+=now-s.event.pausedAt;s.event.pausedAt=null;}
+   if(b.action==='end'){s.event.startedAt=now-s.event.pausedMs-3600000;s.event.pausedAt=null;}
+   if(b.action==='unlock-ai'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');const intoStage=c.elapsed%1200;if(intoStage<300)s.event.startedAt-=Math.ceil((300-intoStage)*1000);}
+   if(b.action==='next-stage'||b.action==='advance-review'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');s.event.startedAt-=Math.ceil((1200-(c.elapsed%1200))*1000);}
+   if(b.action==='publish'){if(!clock(s.event).finished)throw new Error('Competition must finish first');s.event.published=true;}
+   if(b.action==='unpublish')s.event.published=false;
+   if(b.action==='score'){if(!clock(s.event).finished||!b.teamId||!b.score||!s.teams[b.teamId])throw new Error('Scores require a finished competition and valid team');s.teams[b.teamId].score=b.score;delete s.teams[b.teamId].aiReview;}
+   s.audit.push({at:now,actor:id,action:b.action});
+   return b.action==='end'?Object.values(s.teams).filter(t=>t.role!=='admin'&&t.sandboxId).map(t=>t.id):[];
+  });
+  if(b.action==='reset-review')await resetLocalRuntime();
+  if(b.action==='end')await Promise.allSettled(runtimeTeams.map(teamId=>refreshRuntime(teamId)));
+  return NextResponse.json({ok:true});
+ }
+}
 return NextResponse.json({error:'Not found'},{status:404});
 }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Request failed'},{status:400});}}
 export const GET=handler;export const POST=handler;

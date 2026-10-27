@@ -77,11 +77,23 @@ export async function pollRun(teamId:string){
     let metrics:unknown=null;try{metrics=JSON.parse(await readLocalFile(path.join(dir,'output','history.json'),'utf8'));}catch{}
     await mutate(s=>{Object.assign(s.teams[teamId],{output,running:false,metrics});});return {output,running:false,metrics};
   }
-  const t=(await readState()).teams[teamId];if(!t.sandboxId||!t.runId)return {output:t.output??'',running:false};const box=await connect(t.sandboxId);const cmd=await box.getCommand(t.runId);if(cmd.exitCode===null)return {output:'Python is running. Results appear when this run finishes (maximum 120 seconds).',running:true};const output=((await cmd.stdout())+'\n'+(await cmd.stderr())).slice(-30000);let metrics:unknown=null;try{const f=await box.readFileToBuffer({path:'/vercel/sandbox/output/history.json'});metrics=f?JSON.parse(f.toString()):null;}catch{}await mutate(s=>{Object.assign(s.teams[teamId],{output,running:false,metrics});});return {output,running:false,metrics};
+  const t=(await readState()).teams[teamId];if(!t.sandboxId||!t.runId)return {output:t.output??'',running:false};
+  try{const box=await connect(t.sandboxId),cmd=await box.getCommand(t.runId);let finished;try{finished=await cmd.wait({signal:AbortSignal.timeout(1000)});}catch{return {output:'Python is running. Results appear when the run finishes (maximum 120 seconds).',running:true};}const output=((await finished.stdout())+'\n'+(await finished.stderr())).slice(-30000)||'Run completed with no console output.';let metrics:unknown=null;try{const f=await box.readFileToBuffer({path:'/vercel/sandbox/output/history.json'});metrics=f?JSON.parse(f.toString()):null;}catch{}await mutate(s=>{Object.assign(s.teams[teamId],{output,running:false,metrics});});return {output,running:false,metrics};}
+  catch{const output='The Python session disconnected. Your code is saved; select Start Python to create a fresh compiler.';await mutate(s=>{Object.assign(s.teams[teamId],{output,running:false});delete s.teams[teamId].runId;delete s.teams[teamId].sandboxId;});return {output,running:false};}
 }
 export async function stopRun(teamId:string){
   if(localReview()){const run=localRuns.get(teamId);if(run){clearTimeout(run.timer);run.child.kill();localRuns.delete(teamId);await writeFile(path.join(run.dir,'status.json'),JSON.stringify({running:false,exitCode:null,reason:'Stopped by the team',finishedAt:Date.now()}));}await mutate(s=>{s.teams[teamId].running=false;});return;}
-  const t=(await readState()).teams[teamId];if(t.sandboxId&&t.runId){const box=await connect(t.sandboxId);await (await box.getCommand(t.runId)).kill();}await mutate(s=>{s.teams[teamId].running=false;});
+  const t=(await readState()).teams[teamId];if(t.sandboxId&&t.runId){try{const box=await connect(t.sandboxId);await (await box.getCommand(t.runId)).kill();}catch{/* A disconnected command is already stopped. */}}await mutate(s=>{s.teams[teamId].running=false;delete s.teams[teamId].runId;});
+}
+export async function refreshRuntime(teamId:string){
+  if(localReview()){
+    const run=localRuns.get(teamId);if(run){clearTimeout(run.timer);if(run.child.exitCode===null)run.child.kill();localRuns.delete(teamId);}
+    await rm(localDir(teamId),{recursive:true,force:true});
+  }else{
+    const t=(await readState()).teams[teamId];
+    if(t?.sandboxId){try{const box=await connect(t.sandboxId);await box.delete({deleteOrphanSnapshots:true});}catch{/* Missing and expired runtimes are already replaceable. */}}
+  }
+  await mutate(s=>{const t=s.teams[teamId];if(!t)return;t.running=false;delete t.runId;delete t.sandboxId;delete t.output;delete t.metrics;});
 }
 export async function checkpointRuntime(teamId:string){
   if(localReview())return;

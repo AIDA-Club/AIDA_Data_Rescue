@@ -27,6 +27,7 @@ if(action==='runtime/start'&&write){if(!participantClock.active)throw new Error(
 if(action==='runtime/run'&&write){const b=revision.parse(body);await mutate(s=>{assertActive(s,id,b.stage);s.teams[id].workspace={code:b.code,notes:b.notes,at:Date.now()};});return NextResponse.json(await runCode(id,b.code));}
 if(action==='runtime/poll')return NextResponse.json(await pollRun(id));
 if(action==='runtime/stop'&&write){await stopRun(id);return NextResponse.json({ok:true});}
+if(action==='runtime/finish'&&write){if(!participantClock.finished)throw new Error('The competition is still active');await refreshRuntime(id);return NextResponse.json({ok:true});}
 if(action==='hint'&&write){
  const b=z.object({prompt:z.string(),stage:z.number().int().min(1).max(3)}).parse(body);
  if(!promptValid(b.prompt))throw new Error('Use 8–80 words and at most 1,000 characters');

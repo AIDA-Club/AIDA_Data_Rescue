@@ -1,19 +1,14 @@
-# STAGE 2 | Build the Labels
-# Minimal setup only. Continue below your Stage 1 work.
+# STAGE 2 | Basic starting example
 from pathlib import Path
-
 import pandas as pd
 
-cleaned_path = Path('output/cleaned.csv')
-if cleaned_path.exists():
-    records = pd.read_csv(cleaned_path)
-else:
-    print('Stage 1 did not create output/cleaned.csv; starting from the raw records.')
-    records = pd.read_csv('data/equipment_dirty.csv')
-
+source = Path('output/cleaned.csv')
+if not source.exists():
+    print('Stage 1 did not create output/cleaned.csv; using the raw records.')
+    source = Path('data/equipment_dirty.csv')
+records = pd.read_csv(source)
 outcomes = pd.read_csv('data/maintenance_outcomes.csv')
-split = pd.read_csv('data/split_manifest.csv')
-print('Records:', records.shape, '| Outcomes:', outcomes.shape)
+print(records.head())
+print(outcomes.head())
 
-# TODO: create labels, apply the fixed split, and design preprocessing.
-# Required outputs: output/labeled.csv and output/preprocessing.json
+# Continue with your team's own label-building code.

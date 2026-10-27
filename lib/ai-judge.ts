@@ -52,6 +52,7 @@ export async function judgeWithAi(team:Pick<Team,'id'|'name'|'submissions'>):Pro
   const model=local?'local-rubric-simulator':process.env.OPENAI_JUDGE_MODEL??process.env.OPENAI_MODEL??'gpt-4.1-mini';
   let review:JudgeReview;
   if(local){review=localReview(team);}else{
+   try{
     if(!process.env.OPENAI_API_KEY)throw new Error('AI judge is not configured');
     const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({
       model,store:false,max_output_tokens:1200,
@@ -64,6 +65,11 @@ export async function judgeWithAi(team:Pick<Team,'id'|'name'|'submissions'>):Pro
     const text=result.output?.flatMap(item=>item.content??[]).filter(item=>item.type==='output_text').map(item=>item.text??'').join('\n');
     if(!text)throw new Error('AI judge returned no review');
     review=reviewSchema.parse(JSON.parse(text));
+   }catch{
+    review=localReview(team);
+    review.summary=`Built-in rubric fallback was used because the external AI judge was unavailable. ${review.summary.replace('Local rehearsal rubric simulator','The evidence rubric')}`;
+    return {...review,model:'built-in-rubric-fallback',at:Date.now()};
+   }
   }
   return {...review,model,at:Date.now()};
 }

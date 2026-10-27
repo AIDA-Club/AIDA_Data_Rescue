@@ -4,7 +4,7 @@ import {closeSync,existsSync,openSync} from 'node:fs';
 import {copyFile,mkdir,readFile as readLocalFile,rm,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {readState,mutate,cloud,supabase} from './store';
-import {clock,teamClock} from './rules';
+import {teamClock} from './rules';
 
 const hasExplicitCredentials=()=>!!(process.env.VERCEL_TOKEN&&process.env.VERCEL_TEAM_ID&&process.env.VERCEL_PROJECT_ID);
 const credentials=()=>hasExplicitCredentials()?{token:process.env.VERCEL_TOKEN!,teamId:process.env.VERCEL_TEAM_ID!,projectId:process.env.VERCEL_PROJECT_ID!}:{};
@@ -49,10 +49,10 @@ export async function startRuntime(teamId:string){
   if(localReview()){await prepareLocal(teamId);return;}
   if(!remoteReady())throw new Error('Python runtime is not configured. Add the prebuilt Vercel Sandbox snapshot. Your code is saved.');
   const s=await readState(),t=s.teams[teamId];if(t.sandboxId){try{return await connect(t.sandboxId);}catch{/* Restore from durable workspace below. */}}
-  const box=await Sandbox.create({...credentials(),source:{type:'snapshot',snapshotId:process.env.AIDA_SANDBOX_SNAPSHOT!},resources:{vcpus:2},timeout:65*60*1000,networkPolicy:'deny-all'});await box.runCommand({cmd:'mkdir',args:['-p','/vercel/sandbox/data','/vercel/sandbox/output']});const names=['equipment_dirty.csv','split_manifest.csv','data_dictionary.json'];if(teamClock(s.event,t.submissions).stage>=2)names.push('maintenance_outcomes.csv');await box.writeFiles(await Promise.all(names.map(async name=>({path:`/vercel/sandbox/data/${name}`,content:await readLocalFile(path.join(process.cwd(),'data/participant',name))}))));await box.writeFiles([{path:'/vercel/sandbox/main.py',content:Buffer.from(t.workspace.code)}]);await mutate(s=>{s.teams[teamId].sandboxId=box.name;});return box;
+  const box=await Sandbox.create({...credentials(),source:{type:'snapshot',snapshotId:process.env.AIDA_SANDBOX_SNAPSHOT!},resources:{vcpus:2},timeout:20*60*1000,networkPolicy:'deny-all'});await box.runCommand({cmd:'mkdir',args:['-p','/vercel/sandbox/data','/vercel/sandbox/output']});const names=['equipment_dirty.csv','split_manifest.csv','data_dictionary.json'];if(teamClock(s.event,t.submissions).stage>=2)names.push('maintenance_outcomes.csv');await box.writeFiles(await Promise.all(names.map(async name=>({path:`/vercel/sandbox/data/${name}`,content:await readLocalFile(path.join(process.cwd(),'data/participant',name))}))));await box.writeFiles([{path:'/vercel/sandbox/main.py',content:Buffer.from(t.workspace.code)}]);await mutate(s=>{s.teams[teamId].sandboxId=box.name;});return box;
 }
 export async function runCode(teamId:string,code:string){
-  await mutate(s=>{const c=clock(s.event);if(!c.active)throw new Error('Stage is not active');if(s.teams[teamId].running)throw new Error('A run is already active');s.teams[teamId].running=true;});
+  await mutate(s=>{const c=teamClock(s.event,s.teams[teamId].submissions);if(!c.active)throw new Error('Stage is not active');if(s.teams[teamId].running)throw new Error('A run is already active');s.teams[teamId].running=true;});
   try{
     if(localReview())return await runLocal(teamId,code);
     const box=await startRuntime(teamId);if(!box)throw new Error('Runtime did not start');const s=await readState();if(teamClock(s.event,s.teams[teamId].submissions).stage>=2)await box.writeFiles([{path:'/vercel/sandbox/data/maintenance_outcomes.csv',content:await readLocalFile('data/participant/maintenance_outcomes.csv')}]);await box.writeFiles([{path:'/vercel/sandbox/main.py',content:Buffer.from(code)}]);const run=await box.runCommand({cmd:'timeout',args:['--signal=KILL','120','python','-u','main.py'],cwd:'/vercel/sandbox',detached:true,env:{OMP_NUM_THREADS:'2',MPLBACKEND:'Agg'}});await mutate(s=>{s.teams[teamId].runId=run.cmdId;s.teams[teamId].output='Running Python…';});return {runId:run.cmdId};
@@ -82,6 +82,12 @@ export async function pollRun(teamId:string){
 export async function stopRun(teamId:string){
   if(localReview()){const run=localRuns.get(teamId);if(run){clearTimeout(run.timer);run.child.kill();localRuns.delete(teamId);await writeFile(path.join(run.dir,'status.json'),JSON.stringify({running:false,exitCode:null,reason:'Stopped by the team',finishedAt:Date.now()}));}await mutate(s=>{s.teams[teamId].running=false;});return;}
   const t=(await readState()).teams[teamId];if(t.sandboxId&&t.runId){const box=await connect(t.sandboxId);await (await box.getCommand(t.runId)).kill();}await mutate(s=>{s.teams[teamId].running=false;});
+}
+export async function checkpointRuntime(teamId:string){
+  if(localReview())return;
+  const t=(await readState()).teams[teamId];
+  if(t.sandboxId){try{const box=await connect(t.sandboxId);await box.stop();}catch{/* An expired session is already checkpointed. */}}
+  await mutate(s=>{s.teams[teamId].running=false;delete s.teams[teamId].runId;});
 }
 export async function collectArtifacts(teamId:string,receipt:string){
   if(localReview()){

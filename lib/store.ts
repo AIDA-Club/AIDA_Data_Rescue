@@ -4,7 +4,7 @@ import path from 'node:path';
 import {createClient} from '@supabase/supabase-js';
 import type {EventClock} from './rules';
 export type Revision={code:string;notes:string;at:number};
-export type Submission=Revision&{receipt:string;stage:number;artifacts?:Record<string,string>};
+export type Submission=Revision&{receipt:string;stage:number;eventElapsed?:number;artifacts?:Record<string,string>};
 export type Hint={prompt:string;status:'pending'|'done'|'failed';answer?:string;at:number};
 export type AiReview={stage1:number;stage2:number;modelPerformance:number;reproducibility:number;experiments:number;summary:string;strengths:string[];improvements:string[];model:string;at:number};
 export type Team={id:string;name:string;codeHash?:string;role:'team'|'demo'|'admin';workspace:Revision;submissions:Record<string,Submission>;hints:Record<string,Hint>;sandboxId?:string;runId?:string;running?:boolean;output?:string;metrics?:unknown;score?:{stage1:number;stage2:number;stage3:number;accuracy:number;loss:number;reason:string};aiReview?:AiReview};

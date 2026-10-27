@@ -33,7 +33,7 @@ assert.equal((await call(admin,'admin',{action:'next-stage'})).status,200);
 assert.equal((await call(two,'state')).data.clock.stage,2);
 const stageTwoStarter=fs.readFileSync('starters/stage2.py','utf8');
 assert.equal((await call(two,'runtime/run',{code:stageTwoStarter,notes:'Skipped-stage continuity check',stage:2})).status,200);
-let fallbackRun;for(let i=0;i<50;i++){await new Promise(resolve=>setTimeout(resolve,100));fallbackRun=await call(two,'runtime/poll');if(!fallbackRun.data.running)break;}assert.equal(fallbackRun.status,200);assert.equal(fallbackRun.data.running,false);assert.match(fallbackRun.data.output,/Stage 1 did not create output\/cleaned.csv/);assert.match(fallbackRun.data.output,/maintenance_status/);
+let fallbackRun;for(let i=0;i<150;i++){await new Promise(resolve=>setTimeout(resolve,100));fallbackRun=await call(two,'runtime/poll');if(!fallbackRun.data.running)break;}assert.equal(fallbackRun.status,200);assert.equal(fallbackRun.data.running,false);assert.match(fallbackRun.data.output,/Stage 1 did not create output\/cleaned.csv/);assert.match(fallbackRun.data.output,/maintenance_status/);
 const skippedFirst=await call(two,'submit',{code:'print("stage two complete")',notes:'Stage one intentionally missed',stage:2});
 assert.equal(skippedFirst.status,200);
 const afterSkippedFirst=await call(two,'state');

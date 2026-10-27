@@ -82,11 +82,12 @@ if(action.startsWith('admin')){
   const b=z.object({action:z.enum(['start','pause','resume','end','publish','unpublish','unlock-ai','next-stage','advance-review','reset-review','score']),teamId:z.string().optional(),score:z.object({stage1:z.number().min(0).max(30),stage2:z.number().min(0).max(30),stage3:z.number().min(0).max(40),accuracy:z.number().min(0).max(1),loss:z.number().min(0),reason:z.string().min(10).max(1000)}).optional()}).parse(body);
   const runtimeTeams=await mutate(s=>{
    const now=Date.now();
-   if(b.action==='reset-review'){if(cloud())throw new Error('Reset is only available in local review');s.event={startedAt:now,pausedAt:null,pausedMs:0,published:false};for(const t of Object.values(s.teams))if(t.role!=='admin'){t.workspace={code:'',notes:'',at:0};t.submissions={};t.hints={};t.running=false;delete t.runId;delete t.sandboxId;delete t.output;delete t.metrics;delete t.score;delete t.aiReview;}}
-   if(b.action==='start'){if(s.event.startedAt)throw new Error('Event already started');s.event.startedAt=now;}
+   if(b.action==='reset-review'){if(cloud())throw new Error('Reset is only available in local review');s.event={startedAt:now,pausedAt:null,pausedMs:0,published:false,endedAt:null};for(const t of Object.values(s.teams))if(t.role!=='admin'){t.workspace={code:'',notes:'',at:0};t.submissions={};t.hints={};t.running=false;delete t.runId;delete t.sandboxId;delete t.output;delete t.metrics;delete t.score;delete t.aiReview;}}
+   if(b.action==='start'){if(s.event.startedAt||s.event.endedAt)throw new Error('Event already started or ended');s.event.startedAt=now;}
+   if((b.action==='pause'||b.action==='resume')&&s.event.endedAt)throw new Error('Event already ended');
    if(b.action==='pause'&&s.event.startedAt&&!s.event.pausedAt)s.event.pausedAt=now;
    if(b.action==='resume'&&s.event.pausedAt){s.event.pausedMs+=now-s.event.pausedAt;s.event.pausedAt=null;}
-   if(b.action==='end'){s.event.startedAt=now-s.event.pausedMs-3600000;s.event.pausedAt=null;}
+   if(b.action==='end'){if(!s.event.startedAt)throw new Error('Event has not started');if(s.event.endedAt)throw new Error('Event already ended');if(s.event.pausedAt){s.event.pausedMs+=now-s.event.pausedAt;s.event.pausedAt=null;}s.event.endedAt=now;}
    if(b.action==='unlock-ai'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');const intoStage=c.elapsed%1200;if(intoStage<300)s.event.startedAt-=Math.ceil((300-intoStage)*1000);}
    if(b.action==='next-stage'||b.action==='advance-review'){if(cloud()||!s.event.startedAt)throw new Error('Only available in local review after start');const c=clock(s.event);if(c.finished)throw new Error('Competition has finished');s.event.startedAt-=Math.ceil((1200-(c.elapsed%1200))*1000);}
    if(b.action==='publish'){if(!clock(s.event).finished)throw new Error('Competition must finish first');s.event.published=true;}

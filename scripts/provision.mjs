@@ -22,6 +22,6 @@ for(const spec of specs){
  const id=data.user.id;teams[id]={id,name:spec.name,role:spec.role,workspace:{code:'',notes:'',at:0},submissions:{},hints:{}};
  accounts.push({email,password});fs.writeFileSync('.local/team-credentials.json',JSON.stringify(accounts,null,2),{mode:0o600});
 }
-const payload={event:{startedAt:null,pausedAt:null,pausedMs:0,published:false},teams,sessions:{},audit:[],attempts:{}};
+const payload={event:{startedAt:null,pausedAt:null,pausedMs:0,published:false,endedAt:null},teams,sessions:{},audit:[],attempts:{}};
 const {error}=await client.from('event_state').insert({id:1,version:0,payload});if(error)throw new Error('State initialization failed; existing users are retained.');
 console.log('Provisioned 15 competition teams, three practice teams, and one organizer. Credentials saved only to .local/team-credentials.json.');
